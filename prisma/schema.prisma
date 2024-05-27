@@ -14,17 +14,40 @@ datasource db {
 }
 
 model users {
-  id           Int           @id() @default(autoincrement())
-  name         String
-  username         String
-  pass         String //ยอมรับค่าว่าง
-  status       String @default("use")
+  id       Int    @id() @default(autoincrement())
+  name     String
+  username String
+  pass     String //ยอมรับค่าว่าง
+  status   String @default("use")
 }
+
 model Product {
-   id           Int           @id() @default(autoincrement())
-  name         String
-  cost         Int
-  price        Int 
-  img         String
-  status      String @default("use")
+  id             Int              @id() @default(autoincrement())
+  name           String
+  cost           Int
+  price          Int
+  img            String
+  status         String           @default("use")
+  BillSaleDetail BillSaleDetail[]
+}
+
+model BilSale {
+  id              Int              @id @default(autoincrement())
+  customername    String
+  customerphone   String
+  customeraddress String
+  payDate         DateTime
+  paytime         String
+  status          String           @default("wait")
+  BillSaleDetail  BillSaleDetail[]
+}
+
+model BillSaleDetail {
+  id         Int     @id() @default(autoincrement())
+  productid  Int
+  billsaleid Int
+  Product    Product @relation(fields: [productid], references: [id])
+  BillSale   BilSale @relation(fields: [billsaleid], references: [id])
+  cost Int
+  price Int
 }

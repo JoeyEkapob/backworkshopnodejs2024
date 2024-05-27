@@ -4,8 +4,11 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 const jwt = require("jsonwebtoken");
 const dotenv = require("dotenv");
+const fileUpload = require('express-fileupload')
+const exceljs = require('exceljs');
 dotenv.config();
 
+app.use(fileUpload())
 app.post("/create", async (req, res, next) => {
   try {
     await prisma.product.create({
@@ -16,18 +19,23 @@ app.post("/create", async (req, res, next) => {
     res.status(500).send({ error: e.message });
   }
 });
+
 app.get("/list", async (req, res) => {
   try {
     const data = await prisma.product.findMany({
       orderBy: {
         id: "desc",
       },
+      where:{
+        status: 'use'
+      }
     });
     res.send({ results: data });
   } catch (e) {
     res.status(500).send({ message: e.message });
   }
 });
+
 app.delete("/remove/:id", async (req, res) => {
   try {
     await prisma.product.update({
@@ -38,13 +46,121 @@ app.delete("/remove/:id", async (req, res) => {
         id: parseInt(req.params.id),
       },
     });
-  } catch (e) {
+    res.send({ message: 'success' });
+  } catch (e) { 
     res.status(500).send({ message: e.message });
   }
 });
 app.put("/update", async (req, res) => {
   try {
-  } catch (e) {}
+    const fs = require('fs');
+    const oldData = await prisma.product.findFirst({
+        where: {
+            id: parseInt(req.body.id)
+        }
+    });
+    
+    // remove old image
+    const imagePath = './upload/' + oldData.img;
+
+    if (oldData.img != "") {
+        if (fs.existsSync(imagePath)) {
+            await fs.unlinkSync(imagePath);
+        }
+    }
+
+    await prisma.product.update({
+        data: req.body,
+        where: {
+            id: parseInt(req.body.id)
+        }
+    });
+
+    res.send({ message: 'success' });
+
+  } catch (e) {
+ res.status(500).send({ message: e.message });
+  }
 });
+
+
+
+app.post('/upload', async (req,res) =>{
+  try{
+    if(req.files != undefined){
+      if(req.files.img != undefined){
+        const img =req.files.img;
+        const files =require('fs');
+        const myDate = new Date();
+        const y = myDate.getFullYear();
+        const m = myDate.getMonth();
+        const d = myDate.getDate();
+        const h = myDate.getHours();
+        const mi = myDate.getMinutes();
+        const s = myDate.getSeconds();
+        const ms = myDate.getMilliseconds();
+
+        const arrfilename = img.name.split('.');
+        const ext = arrfilename[arrfilename.length-1 ]
+
+        const newname = `${y}${m}${d}${h}${mi}${s}${ms}.${ext}`;
+
+        
+
+        img.mv('./upload/'+ newname ,(err)=>{
+          if (err) throw err;
+
+          return res.send({newname : newname})
+      })
+      }
+    }else{
+    res.status(501).send('notimplemented')
+    }
+  }catch (e){
+    res.status(500).send({error: e.message})
+  }
+})
+app.post('/uploadfromexcel',  (req , res) => {
+  try{
+    const fileexcel = req.files.fileexcel;
+
+  
+
+    fileexcel.mv('./upload/'+ fileexcel.name , async (err)=>{
+      if(err)throw err;
+
+      const wb = new exceljs.Workbook();
+      await wb.xlsx.readFile('./upload/' + fileexcel.name)
+      const ws = wb.getWorksheet(1);
+
+      for (let i = 2 ; i <= ws.rowCount;i++){
+        const name = ws.getRow(i).getCell(1).value ?? "";
+        const cost = ws.getRow(i).getCell(2).value ?? 0;
+        const price = ws.getRow(i).getCell(3).value ?? 0;
+        
+        
+        if(name !="" && cost >= 0 && price >= 0) {
+
+        await prisma.product.create({
+          data:{
+            name : name,
+            cost: cost,
+            price:price,
+            img:''
+          }
+        })
+      }
+      }
+      const fs = require('fs');
+      await fs.unlinkSync('./upload/' + fileexcel.name)
+    
+      res.send({message: 'success'})
+    })
+    
+  }catch (e){
+    res.status(500).send({error: e.message})
+
+  }
+})
 
 module.exports = app;
