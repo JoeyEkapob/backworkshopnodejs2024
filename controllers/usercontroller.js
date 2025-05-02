@@ -74,7 +74,7 @@ app.post('/signin', async (req,res) => {
     res.status(401).send({ message: 'unauthorized'})
 
     }catch (e){
-        console.error("Error: ", error);
+        console.error("Error: ",e );
         res.status(500).send({ error : e.message})
     }
 })
